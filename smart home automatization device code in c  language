@@ -1,0 +1,277 @@
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/face.hpp>
+
+using namespace cv;
+using namespace cv::face;
+
+int main() {
+    // Load the face cascade classifier
+    CascadeClassifier face_cascade;
+    face_cascade.load("haarcascade_frontalface_default.xml");
+
+    // Load the face recognition model
+    Ptr<FaceRecognizer> model = createFisherFaceRecognizer();
+
+    // Load the training data
+    vector<Mat> images;
+    vector<int> labels;
+    for (int i = 0; i < 10; i++) {
+        string filename = "image" + to_string(i) + ".jpg";
+        Mat image = imread(filename);
+        images.push_back(image);
+        labels.push_back(i);
+    }
+
+    // Train the face recognition model
+    model->train(images, labels);
+
+    // Capture video from the camera
+    VideoCapture cap(0);
+    if (!cap.isOpened()) {
+        cout << "Cannot open camera" << endl;
+        return -1;
+    }
+
+    // Loop until the user presses 'q'
+    while (true) {
+        Mat frame;
+        cap >> frame;
+
+        // Convert the frame to grayscale
+        Mat gray;
+        cvtColor(frame, gray, COLOR_BGR2GRAY);
+
+        // Detect faces in the frame
+        vector<Rect> faces;
+        face_cascade.detectMultiScale(gray, faces);
+
+        // Loop through the detected faces
+        for (size_t i = 0; i < faces.size(); i++) {
+            // Get the face rectangle
+            Rect face_rect = faces[i];
+
+            // Extract the face ROI
+            Mat face_roi = gray(face_rect);
+
+            // Resize the face ROI to the model's input size
+            Mat face_resized;
+            resize(face_roi, face_resized, Size(100, 100));
+
+            // Predict the face label
+            int label = model->predict(face_resized);
+
+            // Draw a rectangle around the face
+            rectangle(frame, face_rect, Scalar(0, 255, 0), 2);
+
+            // Display the predicted label
+            string text = "Label: " + to_string(label);
+            putText(frame, text, Point(face_rect.x, face_rect.y - 10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 255), 2);
+        }
+
+        // Display the output
+        imshow("Facial Recognition", frame);
+
+        // Exit on 'q' key press
+        if (waitKey(1) == 'q') {
+            break;
+        }
+    }
+
+    return 0;
+}//CODE FOR FACIAL RECONIZATION
+---------------------------------------------------------------------------------------------------------------------------------------
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <speech_recognition.h>
+
+int main() {
+    // Initialize the speech recognition engine
+    speech_recognition_t *sr = speech_recognition_init();
+
+    // Use the microphone as the audio source
+    speech_recognition_start(sr);
+
+    // Recognize the speech
+    char *text = speech_recognition_recognize(sr);
+
+    // Print the recognized text
+    printf("You said: %s\n", text);
+
+    // Control the smart home devices based on the recognized voice command
+    if (strcmp(text, "turn on living room lights") == 0) {
+        // Turn on living room lights
+        printf("Turning on living room lights\n");
+    } else if (strcmp(text, "turn off living room lights") == 0) {
+        // Turn off living room lights
+        printf("Turning off living room lights\n");
+    } else if (strcmp(text, "turn on kitchen lights") == 0) {
+        // Turn on kitchen lights
+        printf("Turning on kitchen lights\n");
+    } else if (strcmp(text, "turn off kitchen lights") == 0) {
+        // Turn off kitchen lights
+        printf("Turning off kitchen lights\n");
+    }
+
+    // Clean up
+    speech_recognition_free(sr);
+    free(text);
+
+    return 0;
+}//CODE FOR VOICE RECONIZZATION
+--------------------------------------------------------------------------------------------------------------------------------
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <Wire.h>
+
+const char* ssid = "your_ssid";
+const char* password = "your_password";
+const char* mqttServer = "your_mqtt_server";
+const char* mqttTopic = "your_mqtt_topic";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+const int motionPin = 13; // Pin for PIR motion sensor
+const int lockPin = 9; // Pin for door lock module
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(motionPin, INPUT);
+  pinMode(lockPin, OUTPUT);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Connect to MQTT server
+  client.setServer(mqttServer, 1883);
+  client.connect("ESP32_Door_Client");
+}
+
+void loop() {
+  int motionState = digitalRead(motionPin);
+  if (motionState == HIGH) {
+    Serial.println("Motion detected!");
+    digitalWrite(lockPin, HIGH); // Unlock the door
+    client.publish(mqttTopic, "Door unlocked");
+  } else {
+    Serial.println("No motion detected");
+    digitalWrite(lockPin, LOW); // Lock the door
+    client.publish(mqttTopic, "Door locked");
+  }
+
+  delay(1000); // Update every 1 second
+}//CODE FOR MOTION DETECTOR SENSOR
+----------------------------------------------------------------------------------------------------------------
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <Wire.h>
+#include <BH1750.h>
+
+const char* ssid = "your_ssid";
+const char* password = "your_password";
+const char* mqttServer = "your_mqtt_server";
+const char* mqttTopic = "your_mqtt_topic";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+BH1750 lightSensor;
+
+const int ledPin = 9; // Pin for LED strip or bulb
+
+void setup() {
+  Serial.begin(115200);
+  lightSensor.begin();
+  pinMode(ledPin, OUTPUT);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Connect to MQTT server
+  client.setServer(mqttServer, 1883);
+  client.connect("ESP32_Light_Client");
+}
+
+void loop() {
+  uint16_t lux = lightSensor.readLightLevel();
+  Serial.print("Light Level: ");
+  Serial.print(lux);
+  Serial.println(" lux");
+
+  if (lux < 100) { // Adjust the threshold value as needed
+    analogWrite(ledPin, 255); // Turn on the light
+    client.publish(mqttTopic, "Light ON");
+  } else {
+    analogWrite(ledPin, 0); // Turn off the light
+    client.publish(mqttTopic, "Light OFF");
+  }
+
+  delay(1000); // Update every 1 second
+}//CODE FOR OPTIMAL RECONIZATION
+---------------------------------------------------------------------------------------------
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+const char* ssid = "your_ssid";
+const char* password = "your_password";
+const char* mqttServer = "your_mqtt_server";
+const char* mqttTopic = "your_mqtt_topic";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+OneWire oneWire(2); // Pin for temperature sensor
+DallasTemperature tempSensor(&oneWire);
+
+const int fanPin = 9; // Pin for fan module
+
+void setup() {
+  Serial.begin(115200);
+  tempSensor.begin();
+  pinMode(fanPin, OUTPUT);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Connect to MQTT server
+  client.setServer(mqttServer, 1883);
+  client.connect("ESP32_Fan_Client");
+}
+
+void loop() {
+  tempSensor.requestTemperatures();
+  float temperature = tempSensor.getTempCByIndex(0);
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println("°C");
+
+  if (temperature > 25) { // Adjust the threshold value as needed
+    analogWrite(fanPin, 255); // Turn on the fan
+    client.publish(mqttTopic, "Fan ON");
+  } else {
+    analogWrite(fanPin, 0); // Turn off the fan
+    client.publish(mqttTopic, "Fan OFF");
+  }
+
+  delay(1000); // Update every 1 second
+}//CODE FOR TEMPERATURE DETECTOR
